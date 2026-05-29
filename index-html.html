@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wardrobe Manager</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,sans-serif}
+body{background:#f5f4f0;padding:12px}
+.app{max-width:900px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e0ddd8;min-height:400px}
+.tabs{display:flex;background:#f7f6f2;border-bottom:1px solid #e0ddd8}
+.tab-btn{flex:1;padding:11px;font-size:13px;font-weight:500;border:none;background:transparent;cursor:pointer;color:#888;border-bottom:2px solid transparent;font-family:inherit}
+.tab-btn.on{color:#534AB7;border-bottom-color:#534AB7;background:#fff}
+.badge{background:#534AB7;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px}
+.pane{display:none}.pane.on{display:block}
+.split{display:flex;align-items:stretch;min-height:500px}
+.split-left{flex:1;min-width:0;overflow-y:auto;border-right:1px solid #e0ddd8;max-height:85vh}
+.split-right{width:310px;flex-shrink:0;background:#fafaf8;overflow-y:auto;max-height:85vh}
+.split-right-inner{padding:16px}
+.right-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;color:#ccc;gap:8px;padding:32px 16px;text-align:center}
+.sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:100}
+.sheet{position:fixed;bottom:0;left:0;right:0;background:#fff;border-radius:20px 20px 0 0;padding:20px 16px 32px;z-index:101;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,0,.67,0);max-height:85vh;overflow-y:auto}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 16px}
+@media(max-width:639px){
+  .split{display:block;min-height:unset}
+  .split-left{border-right:none;max-height:unset;overflow-y:visible}
+  .split-right{display:none}
+  .sheet-overlay,.sheet{display:block}
+}
+@media(min-width:640px){.sheet-overlay,.sheet{display:none!important}}
+.hdr{background:#f7f6f2;border-bottom:1px solid #e0ddd8;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ltab{padding:4px 11px;border-radius:20px;border:1px solid #ddd;background:transparent;color:#888;font-size:11px;cursor:pointer;font-family:inherit}
+.ltab.on{background:#534AB7;color:#fff;border-color:#534AB7}
+.catbar{display:flex;gap:5px;padding:7px 14px;border-bottom:1px solid #e0ddd8;overflow-x:auto;scrollbar-width:none}
+.catbar::-webkit-scrollbar{display:none}
+.cbtn{padding:3px 9px;border-radius:20px;border:.5px solid #ddd;background:transparent;color:#999;font-size:10px;cursor:pointer;white-space:nowrap;font-family:inherit}
+.cbtn.on{border-color:#534AB7;background:#EEEDFE;color:#3C3489}
+.slbl{font-size:9px;color:#aaa;padding:10px 14px 3px;letter-spacing:.07em;text-transform:uppercase;font-weight:500}
+.rod-wrap{padding:0 14px 6px}.rod{height:5px;background:#ece8e2;border:.5px solid #d5d0ca;border-radius:3px}
+.hang-row,.shelf-row{display:flex;gap:8px;padding:4px 14px 13px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;min-height:110px;align-items:flex-start}
+.hang-row::-webkit-scrollbar,.shelf-row::-webkit-scrollbar{display:none}
+.zone{border-top:1px solid #e0ddd8;background:#fafaf8}
+.zone2{border-top:1px dashed #ddd;background:#fff}
+.empty{font-size:11px;color:#bbb;padding:10px 0}
+.hitem{display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform .15s}
+.hitem:hover,.hitem.on{transform:translateY(-4px)}
+.icard{border-radius:8px 8px 10px 10px;border:1.5px solid #e0ddd8;width:70px;height:100px;min-width:70px;max-width:70px;min-height:100px;max-height:100px;display:flex;flex-direction:column;align-items:center;padding:6px 4px 5px;overflow:hidden}
+.hitem.on .icard{border:2px solid #534AB7}
+.ivisual{width:56px;height:56px;min-width:56px;min-height:56px;max-width:56px;max-height:56px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.iimg{width:56px;height:56px;object-fit:cover;mix-blend-mode:multiply;display:block;flex-shrink:0}
+.iemoji{font-size:22px;width:56px;height:56px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.iname{font-size:8px;color:#222;text-align:center;line-height:1.2;font-weight:500;word-break:break-word;max-width:64px;margin-top:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ibrand{font-size:7px;color:#aaa;text-align:center;overflow:hidden;white-space:nowrap;max-width:64px}
+.sitem{border-radius:10px;border:1.5px solid #e0ddd8;width:70px;height:100px;min-width:70px;max-width:70px;min-height:100px;max-height:100px;padding:6px 4px 5px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:transform .15s;overflow:hidden}
+.sitem:hover,.sitem.on{transform:translateY(-3px)}
+.sitem.on{border:2px solid #534AB7}
+.ptitle{font-size:14px;font-weight:500;color:#222;margin-bottom:4px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.xbtn{background:none;border:none;font-size:20px;cursor:pointer;color:#aaa;line-height:1;flex-shrink:0;padding:0;font-family:inherit}
+.mpill{font-size:10px;padding:2px 7px;border-radius:20px;background:#f0ece8;border:.5px solid #e0ddd8;color:#666;display:inline-block;margin:2px 2px 0 0}
+.btn{padding:6px 13px;border-radius:8px;font-size:11px;font-weight:500;border:none;cursor:pointer;white-space:nowrap;font-family:inherit}
+.btn-p{background:#534AB7;color:#fff}.btn-g{background:#0F6E56;color:#fff}
+.btn-s{background:#f0ece8;color:#555;border:.5px solid #e0ddd8}
+.btn-d{background:#FCEBEB;color:#A32D2D;border:.5px solid #fce8e8}
+.btn-full{width:100%;margin-top:6px;padding:9px;border-radius:10px;font-size:12px;text-align:center}
+.divider{height:.5px;background:#e0ddd8;margin:12px 0}
+.fs{margin-bottom:11px}
+.flbl{font-size:10px;color:#666;font-weight:500;margin-bottom:4px;display:block}
+.fi{padding:7px 10px;border:.5px solid #e0ddd8;border-radius:8px;font-size:12px;background:#fff;color:#222;outline:none;width:100%;font-family:inherit}
+.fi:focus{border-color:#534AB7}
+.chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
+.chip{padding:3px 9px;border-radius:20px;border:.5px solid #ddd;background:transparent;color:#999;font-size:10px;cursor:pointer;font-family:inherit}
+.chip.on{border-color:#534AB7;background:#EEEDFE;color:#3C3489}
+.chip.g.on{border-color:#0F6E56;background:#E1F5EE;color:#0F6E56}
+.csw{width:20px;height:20px;border-radius:50%;cursor:pointer;border:1.5px solid #ccc;flex-shrink:0;display:inline-block}
+.csw.on{outline:2.5px solid #534AB7;outline-offset:2px}
+.img-preview{width:80px;height:80px;border-radius:8px;overflow:hidden;background:#f5f5f5;border:.5px solid #e0ddd8;display:flex;align-items:center;justify-content:center;margin-top:6px}
+.img-preview img{width:100%;height:100%;object-fit:cover;mix-blend-mode:multiply}
+.ph{background:#f7f6f2;border-bottom:1px solid #e0ddd8;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.trip-tag{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:5px 13px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;border:none}
+.trip-tag.empty{border:1.5px dashed #534AB7;color:#534AB7;background:transparent}
+.trip-tag.full{background:#534AB7;color:#fff}
+.suit-wrap{padding:16px 14px 12px;background:#fff;border-bottom:1px solid #e0ddd8}
+.suitcase{position:relative;background:#F1EFE8;border:2.5px solid #888780;border-radius:20px;padding:14px 14px 10px;margin-top:20px}
+.suit-handle{position:absolute;top:-22px;left:50%;transform:translateX(-50%);width:80px;height:20px;border:2.5px solid #888780;border-bottom:none;border-radius:10px 10px 0 0;background:#D3D1C7}
+.suit-zipper{height:2px;background:repeating-linear-gradient(90deg,#B4B2A9 0,#B4B2A9 5px,transparent 5px,transparent 9px);margin-bottom:12px;border-radius:1px}
+.suit-lock{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:22px;height:14px;background:#888780;border-radius:4px;display:flex;align-items:center;justify-content:center}
+.suit-lock-hole{width:8px;height:8px;border-radius:50%;background:#5F5E5A}
+.sg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px}
+.sg2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.secbox{border-radius:10px;padding:7px 8px;min-height:65px;border:1.5px solid transparent;transition:border-color .3s,box-shadow .3s}
+.secbox.flash{box-shadow:0 0 0 3px var(--sc)55;border-color:var(--sc)!important}
+.sec-lbl{font-size:9px;font-weight:500;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.sec-cnt{color:#fff;border-radius:10px;padding:1px 5px;font-size:8px}
+.ichip{display:flex;align-items:center;gap:3px;border-radius:5px;padding:2px 5px;font-size:8px;font-weight:500;color:#111;margin-bottom:3px;border:.5px solid #bbb}
+.sec-empty{font-size:9px;font-style:italic;opacity:.45}
+.suit-wheels{display:flex;justify-content:space-between;padding:8px 18px 0}
+.wheel{width:28px;height:13px;background:#5F5E5A;border-radius:0 0 7px 7px;display:flex;align-items:center;justify-content:center}
+.wheel-inner{width:9px;height:9px;border-radius:50%;background:#2C2C2A}
+.pack-body{padding:12px 14px 14px;background:#fafaf8}
+.pack-row{display:flex;align-items:center;gap:7px;padding:6px 9px;background:#fff;border:.5px solid #e0ddd8;border-radius:9px;margin-bottom:5px}
+.prem{background:none;border:none;color:#ccc;cursor:pointer;font-size:16px;line-height:1;padding:0;margin-left:auto;font-family:inherit}
+.prem:hover{color:#A32D2D}
+.from-closet{border-top:.5px dashed #ddd;margin-top:10px;padding-top:10px}
+.mini-i{display:inline-flex;flex-direction:column;align-items:center;cursor:pointer;width:60px;gap:2px;padding:5px 3px;border-radius:8px;border:1.5px solid #e0ddd8;transition:all .12s;vertical-align:top;margin:2px;font-family:inherit;background:transparent;overflow:hidden}
+.mini-i:hover{border-color:#0F6E56;background:#E1F5EE}
+.mini-i.inp{opacity:.3;pointer-events:none}
+.floater{position:fixed;font-size:28px;pointer-events:none;z-index:9999;animation:flyUp .7s ease-out forwards}
+@keyframes flyUp{0%{opacity:1;transform:scale(1) translateY(0)}100%{opacity:0;transform:scale(1.6) translateY(-80px)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="tabs">
+    <button class="tab-btn on" onclick="switchTab('closet',this)">👕 Tủ đồ</button>
+    <button class="tab-btn" onclick="switchTab('packing',this)">🧳 Packing <span class="badge" id="packBadge" style="display:none">0</span></button>
+  </div>
+
+  <div class="pane on" id="pane-closet">
+    <div class="hdr">
+      <span style="font-size:13px;font-weight:500;color:#222">Tủ đồ của tôi</span>
+      <div class="row">
+        <div class="row" id="locTabs">
+          <button class="ltab on" onclick="setLoc('all',this)">Tất cả</button>
+          <button class="ltab" onclick="setLoc('city',this)">🏙️ TP</button>
+          <button class="ltab" onclick="setLoc('home',this)">🏡 Quê</button>
+        </div>
+        <button class="btn btn-p" onclick="openAdd()" style="padding:4px 12px;border-radius:20px;font-size:11px">+ Thêm</button>
+      </div>
+    </div>
+    <div class="catbar" id="catBar"></div>
+    <div class="split">
+      <div class="split-left">
+        <div class="slbl" id="hangLbl">— Treo —</div>
+        <div class="rod-wrap"><div class="rod"></div></div>
+        <div class="hang-row" id="hangRow"></div>
+        <div class="zone">
+          <div class="slbl" id="shelfLbl">— Kệ quần —</div>
+          <div class="shelf-row" id="shelfRow"></div>
+        </div>
+        <div class="zone2">
+          <div class="slbl" id="underLbl">— Kệ đồ lót —</div>
+          <div class="shelf-row" id="underRow"></div>
+        </div>
+        <div class="zone">
+          <div class="slbl" id="shoesLbl">— Kệ giày & dép —</div>
+          <div class="shelf-row" id="shoesRow"></div>
+        </div>
+        <div class="zone2">
+          <div class="slbl" id="accLbl">— Kệ phụ kiện —</div>
+          <div class="shelf-row" id="accRow"></div>
+        </div>
+        <div class="zone">
+          <div class="slbl" id="beautyLbl">— Kệ mỹ phẩm & skincare —</div>
+          <div class="shelf-row" id="beautyRow"></div>
+        </div>
+      </div>
+      <div class="split-right">
+        <div class="split-right-inner" id="rightInner">
+          <div class="right-empty">
+            <div style="font-size:36px">👆</div>
+            <div style="font-size:12px;line-height:1.6;color:#bbb">Chọn một item để xem chi tiết<br>hoặc nhấn <strong>+ Thêm</strong> để thêm mới</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pane" id="pane-packing">
+    <div class="ph">
+      <button id="tripTagEl" onclick="toggleTrip()" class="trip-tag empty">✈️ Thêm thông tin chuyến đi</button>
+      <span id="perDayEl"></span>
+    </div>
+    <div id="tripForm" style="display:none;padding:12px 14px;background:#fff;border-bottom:1px solid #e0ddd8">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px">
+        <div style="grid-column:1/-1"><label class="flbl">Tên chuyến đi</label><input class="fi" id="t-name" placeholder="VD: Đà Lạt 3 ngày 2 đêm"></div>
+        <div><label class="flbl">Số ngày</label><input class="fi" id="t-days" type="number" min="1" placeholder="3"></div>
+        <div><label class="flbl">Ngày đi</label><input class="fi" id="t-date" type="date"></div>
+        <div style="grid-column:1/-1"><label class="flbl">Ghi chú</label><input class="fi" id="t-note" placeholder="VD: Thời tiết lạnh..."></div>
+      </div>
+      <button class="btn btn-p" style="margin-top:8px" onclick="saveTrip()">Xong</button>
+    </div>
+    <div class="suit-wrap">
+      <div class="suitcase">
+        <div class="suit-handle"></div>
+        <div class="suit-zipper"></div>
+        <div class="suit-lock"><div class="suit-lock-hole"></div></div>
+        <div class="sg3" id="secTop"></div>
+        <div class="sg2" id="secMid" style="margin-top:8px"></div>
+        <div class="sg2" id="secBot" style="margin-top:8px"></div>
+        <div class="suit-wheels">
+          <div class="wheel"><div class="wheel-inner"></div></div>
+          <div class="wheel"><div class="wheel-inner"></div></div>
+        </div>
+      </div>
+      <div id="secStats" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px"></div>
+    </div>
+    <div class="pack-body">
+      <div class="slbl" id="packListLbl" style="padding:0 0 8px">— Đồ trong vali (0) —</div>
+      <div id="packList"></div>
+      <div class="from-closet">
+        <div class="slbl" style="padding:0 0 7px;font-size:9px">Chọn từ tủ đồ</div>
+        <div class="row" style="margin-bottom:8px" id="pLocTabs">
+          <button class="ltab on" onclick="setPLoc('all',this)">Tất cả</button>
+          <button class="ltab" onclick="setPLoc('city',this)">🏙️ TP</button>
+          <button class="ltab" onclick="setPLoc('home',this)">🏡 Quê</button>
+        </div>
+        <div id="miniCloset"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div id="sheetInner"></div>
+</div>
+
+<script>
+const COLORS=[{id:'white',h:'#f0f0f0',b:'#bbb'},{id:'black',h:'#c8c8c8',b:'#999'},{id:'navy',h:'#7a9cc4',b:'#4a6e9a'},{id:'beige',h:'#e8d9c0',b:'#c4a97a'},{id:'gray',h:'#d0cfc9',b:'#aaa'},{id:'blue',h:'#85b7eb',b:'#378add'},{id:'green',h:'#97c459',b:'#639922'},{id:'brown',h:'#c4956a',b:'#7a5030'},{id:'olive',h:'#b8c48a',b:'#7a8a5b'},{id:'red',h:'#f09595',b:'#a32d2d'},{id:'yellow',h:'#fac775',b:'#ba7517'}];
+const CATS=[{id:'tshirt',l:'Áo thun',e:'👕',z:'hang'},{id:'shirt',l:'Sơ mi',e:'👔',z:'hang'},{id:'outerwear',l:'Áo khoác',e:'🧥',z:'hang'},{id:'sportswear',l:'Thể thao',e:'🏃',z:'hang'},{id:'pants',l:'Quần dài',e:'👖',z:'shelf'},{id:'shorts',l:'Short',e:'🩲',z:'shelf'},{id:'underwear',l:'Đồ lót',e:'🩲',z:'under'},{id:'shoes',l:'Giày/Dép',e:'👟',z:'shoes'},{id:'accessories',l:'Phụ kiện',e:'⌚',z:'acc'},{id:'skincare',l:'Skincare',e:'🧴',z:'beauty'}];
+const BRANDS=['Uniqlo','H&M','Zara','Nike','Adidas','Puma','New Balance','Converse','Vans','The North Face','Local Brand','Không nhớ','Khác'];
+const SEASONS=['Hè','Đông','Thu/Xuân','Tất cả mùa'];
+const SECS=[{id:'top',l:'Áo',cats:['tshirt','shirt','sportswear'],col:'#534AB7',bg:'#EEEDFE',e:'👕'},{id:'outer',l:'Áo ngoài',cats:['outerwear'],col:'#3C3489',bg:'#CECBF6',e:'🧥'},{id:'bottom',l:'Quần',cats:['pants','shorts'],col:'#0F6E56',bg:'#E1F5EE',e:'👖'},{id:'under',l:'Đồ lót',cats:['underwear'],col:'#993556',bg:'#FBEAF0',e:'🩲'},{id:'shoes',l:'Giày & Dép',cats:['shoes'],col:'#854F0B',bg:'#FAEEDA',e:'👟'},{id:'acc',l:'Phụ kiện',cats:['accessories'],col:'#5F5E5A',bg:'#F1EFE8',e:'⌚'},{id:'beauty',l:'Skincare',cats:['skincare'],col:'#D4537E',bg:'#FBEAF0',e:'🧴'}];
+
+const ch=id=>(COLORS.find(c=>c.id===id)||{h:'#eee'}).h;
+const cb=id=>(COLORS.find(c=>c.id===id)||{b:'#ccc'}).b;
+const ce=id=>(CATS.find(c=>c.id===id)||{e:'📦'}).e;
+const cl=id=>(CATS.find(c=>c.id===id)||{l:id}).l;
+const getSec=cat=>SECS.find(s=>s.cats.includes(cat))||SECS[0];
+const isMobile=()=>window.innerWidth<640;
+
+let items=[],nid=100,aLoc='all',aCat='all',sel=null,packIds=[],pLoc='all';
+let trip={name:'',days:'',date:'',note:''},tripOpen=false,fdata=null;
+
+// ---- STORAGE (localStorage — hoạt động trên GitHub Pages) ----
+function saveData(){
+  try{
+    const itemsNoImg=items.map(i=>({...i,img:''}));
+    localStorage.setItem('wm_items',JSON.stringify(itemsNoImg));
+    localStorage.setItem('wm_pack',JSON.stringify(packIds));
+    localStorage.setItem('wm_trip',JSON.stringify(trip));
+    localStorage.setItem('wm_nid',nid);
+    items.forEach(i=>{
+      if(i.img&&i.img.startsWith('data:')){
+        try{localStorage.setItem('wm_img_'+i.id,i.img);}
+        catch(e){console.warn('img too large, skipping',i.id);}
+      }
+    });
+  }catch(e){console.warn('save error',e);}
+}
+function loadData(){
+  try{
+    const r=localStorage.getItem('wm_items');
+    if(r){
+      const loaded=JSON.parse(r);
+      loaded.forEach(item=>{
+        const img=localStorage.getItem('wm_img_'+item.id);
+        if(img)item.img=img;
+      });
+      items=loaded;
+    } else {
+      items=[];
+    }
+    const p=localStorage.getItem('wm_pack');
+    if(p)packIds=JSON.parse(p);
+    const t=localStorage.getItem('wm_trip');
+    if(t)trip=JSON.parse(t);
+    const n=localStorage.getItem('wm_nid');
+    if(n)nid=parseInt(n);
+  }catch(e){console.warn('load error',e);}
+}
+
+// ---- IMAGE ----
+function compressImg(dataUrl,cb){
+  const img=new Image();
+  img.onload=()=>{
+    const canvas=document.createElement('canvas');
+    const MAX=300;
+    let w=img.width,h=img.height;
+    if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}
+    else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
+    canvas.width=w;canvas.height=h;
+    canvas.getContext('2d').drawImage(img,0,0,w,h);
+    cb(canvas.toDataURL('image/jpeg',0.7));
+  };
+  img.src=dataUrl;
+}
+function handleImgUpload(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>compressImg(e.target.result,compressed=>{fdata.img=compressed;renderImgPreview();});
+  reader.readAsDataURL(file);
+}
+function renderImgPreview(){
+  const el=document.getElementById('imgPrev');
+  if(!el)return;
+  el.innerHTML=fdata.img?`<div class="img-preview"><img src="${fdata.img}"></div>`:'';
+}
+function imgErrSwap(el,emoji){el.outerHTML='<span style="font-size:22px">'+emoji+'</span>';}
+
+// ---- ITEM VISUAL ----
+function itemVisual(item){
+  const inner=item.img
+    ?`<img class="iimg" src="${item.img}" onerror="imgErrSwap(this,'${ce(item.category)}')">`
+    :`<div class="iemoji">${ce(item.category)}</div>`;
+  return `<div class="ivisual">${inner}</div>`;
+}
+function hangerSVG(c){
+  const fc=ch(c);
+  return `<svg width="60" height="22" viewBox="0 0 60 22" fill="none"><line x1="30" y1="0" x2="30" y2="5" stroke="#bbb" stroke-width="1.5"/><path d="M30 5 Q30 10 30 10 Q22 14 8 20 L52 20 Q38 14 30 10" stroke="${fc}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="30" cy="5" r="2.5" fill="${fc}"/></svg>`;
+}
+
+// ---- TABS ----
+function switchTab(t,el){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById('pane-'+t).classList.add('on');
+  if(t==='packing')renderPacking();
+}
+
+// ---- CLOSET ----
+function setLoc(loc,el){aLoc=loc;sel=null;fdata=null;document.querySelectorAll('#locTabs .ltab').forEach(b=>b.classList.remove('on'));el.classList.add('on');renderCloset();}
+function setCat(cat){aCat=cat;sel=null;fdata=null;renderCloset();}
+function setSel(id){fdata=null;sel=(sel===id)?null:id;renderCloset();if(sel){if(isMobile())openSheet();}else{closeSheet();}}
+function showPanel(html){if(isMobile()){document.getElementById('sheetInner').innerHTML=html;openSheet();}else{document.getElementById('rightInner').innerHTML=html;}}
+function openSheet(){document.getElementById('sheetOverlay').style.display='block';setTimeout(()=>document.getElementById('sheet').classList.add('open'),10);}
+function closeSheet(){document.getElementById('sheet').classList.remove('open');setTimeout(()=>document.getElementById('sheetOverlay').style.display='none',300);}
+function filtered(){return items.filter(i=>(aLoc==='all'||i.location===aLoc)&&(aCat==='all'||i.category===aCat));}
+
+function renderCloset(){
+  document.getElementById('catBar').innerHTML=[{id:'all',l:'Tất cả'},...CATS].map(c=>`<button class="cbtn${aCat===c.id?' on':''}" onclick="setCat('${c.id}')">${c.l}</button>`).join('');
+  const f=filtered();
+  const byZ=z=>f.filter(i=>CATS.find(c=>c.id===i.category)?.z===z);
+  const hang=byZ('hang'),shelf=byZ('shelf'),under=byZ('under'),shoes=byZ('shoes'),acc=byZ('acc'),beauty=byZ('beauty');
+  document.getElementById('hangLbl').textContent=`— Treo (${hang.length}) —`;
+  document.getElementById('shelfLbl').textContent=`— Kệ quần (${shelf.length}) —`;
+  document.getElementById('underLbl').textContent=`— Kệ đồ lót (${under.length}) —`;
+  document.getElementById('shoesLbl').textContent=`— Kệ giày & dép (${shoes.length}) —`;
+  document.getElementById('accLbl').textContent=`— Kệ phụ kiện (${acc.length}) —`;
+  document.getElementById('beautyLbl').textContent=`— Kệ mỹ phẩm & skincare (${beauty.length}) —`;
+
+  document.getElementById('hangRow').innerHTML=hang.length?hang.map(it=>{
+    const on=sel===it.id;
+    return `<div class="hitem${on?' on':''}" onclick="setSel(${it.id})">${hangerSVG(it.color)}<div class="icard" style="background:${it.img?'#fff':ch(it.color)+'22'};border-color:${on?'#534AB7':cb(it.color)+'66'}">${itemVisual(it)}<div class="iname">${it.name}</div><div class="ibrand">${it.brand}</div></div></div>`;
+  }).join(''):'<span class="empty">Không có item nào</span>';
+
+  const si=it=>{
+    const on=sel===it.id;
+    return `<div class="sitem${on?' on':''}" onclick="setSel(${it.id})" style="background:${it.img?'#fff':ch(it.color)+'22'};border-color:${on?'#534AB7':cb(it.color)+'55'}">${itemVisual(it)}<div class="iname">${it.name}</div><div class="ibrand">${it.brand}</div></div>`;
+  };
+  ['shelfRow','underRow','shoesRow','accRow','beautyRow'].forEach((id,i)=>{
+    const data=[shelf,under,shoes,acc,beauty][i];
+    document.getElementById(id).innerHTML=data.length?data.map(si).join(''):'<span class="empty">Không có</span>';
+  });
+  renderRightPanel();
+}
+
+function renderRightPanel(){
+  if(fdata){renderFormPanel();return;}
+  if(!sel){
+    if(!isMobile())document.getElementById('rightInner').innerHTML=`<div class="right-empty"><div style="font-size:36px">👆</div><div style="font-size:12px;line-height:1.6;color:#bbb">Chọn một item để xem chi tiết<br>hoặc nhấn <strong>+ Thêm</strong> để thêm mới</div></div>`;
+    return;
+  }
+  const it=items.find(i=>i.id===sel);if(!it)return;
+  const inP=packIds.includes(sel);
+  const pills=[it.location==='city'?'🏙️ TP':'🏡 Quê','🌤 '+it.season,cl(it.category),it.note?`"${it.note}"`:null].filter(Boolean).map(m=>`<span class="mpill">${m}</span>`).join('');
+  const preview=it.img?`<div style="width:100%;height:130px;background:#f5f5f5;border-radius:10px;border:.5px solid #e0ddd8;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:12px"><img src="${it.img}" style="max-width:100%;max-height:130px;object-fit:contain;mix-blend-mode:multiply"></div>`:'';
+  const html=`${preview}
+    <div class="ptitle"><div><div style="font-size:14px;margin-bottom:3px">${ce(it.category)} ${it.name}</div><div style="font-size:11px;color:#534AB7">${it.brand}</div></div><button class="xbtn" onclick="setSel(null);closeSheet()">×</button></div>
+    <div style="margin-bottom:10px">${pills}</div>
+    <div class="divider"></div>
+    <button class="btn btn-p btn-full" onclick="openEdit(${it.id})">✏️ Sửa thông tin</button>
+    <button class="btn btn-s btn-full" onclick="moveItem(${it.id})">${it.location==='city'?'→ Chuyển về quê':'→ Chuyển lên TP'}</button>
+    ${inP?`<button class="btn btn-s btn-full" onclick="remPack(${it.id})">🧳 Bỏ khỏi vali</button>`:`<button class="btn btn-g btn-full" onclick="addPackBtn(${it.id},event)">🧳 Cho vào vali</button>`}
+    <button class="btn btn-d btn-full" onclick="delItem(${it.id})">Xoá item</button>`;
+  showPanel(html);
+}
+
+function renderFormPanel(){
+  const isE=!!fdata.id;
+  const catC=CATS.map(c=>`<button class="chip${fdata.category===c.id?' on':''}" onclick="fdata.category='${c.id}';renderFormPanel()">${c.e} ${c.l}</button>`).join('');
+  const locC=[['city','🏙️ TP'],['home','🏡 Quê']].map(([v,l])=>`<button class="chip g${fdata.location===v?' on':''}" onclick="fdata.location='${v}';renderFormPanel()">${l}</button>`).join('');
+  const seaC=SEASONS.map(s=>`<button class="chip${fdata.season===s?' on':''}" onclick="fdata.season='${s}';renderFormPanel()">${s}</button>`).join('');
+  const brO=BRANDS.map(b=>`<option${fdata.brand===b?' selected':''}>${b}</option>`).join('');
+  const colS=COLORS.map(c=>`<div class="csw${fdata.color===c.id?' on':''}" style="background:${c.h};border-color:${c.b}" onclick="fdata.color='${c.id}';renderFormPanel()"></div>`).join('');
+  const html=`
+    <div class="ptitle"><span style="font-size:14px">${isE?'✏️ Chỉnh sửa':'➕ Thêm mới'}</span><button class="xbtn" onclick="cancelForm()">×</button></div>
+    <div class="fs"><label class="flbl">Tên item *</label><input class="fi" value="${fdata.name}" oninput="fdata.name=this.value" placeholder="VD: Áo thun đen..."></div>
+    <div class="fs"><label class="flbl">Danh mục</label><div class="chips">${catC}</div></div>
+    <div class="fs"><label class="flbl">Vị trí</label><div class="chips">${locC}</div></div>
+    <div class="fs"><label class="flbl">Brand</label><select class="fi" onchange="fdata.brand=this.value">${brO}</select></div>
+    <div class="fs"><label class="flbl">Mùa</label><div class="chips">${seaC}</div></div>
+    <div class="fs"><label class="flbl">Màu sắc</label><div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px">${colS}</div></div>
+    <div class="fs">
+      <label class="flbl">Ảnh sản phẩm</label>
+      <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:8px;background:#534AB7;color:#fff;font-size:11px;font-weight:500;cursor:pointer;margin-bottom:6px">
+        📷 Chọn ảnh từ máy
+        <input type="file" accept="image/*" style="display:none" onchange="handleImgUpload(this)">
+      </label>
+      <div id="imgPrev">${fdata.img?`<div class="img-preview"><img src="${fdata.img}"></div>`:''}</div>
+    </div>
+    <div class="fs"><label class="flbl">Ghi chú</label><input class="fi" value="${fdata.note||''}" oninput="fdata.note=this.value" placeholder="VD: Size M..."></div>
+    <div class="divider"></div>
+    <button class="btn btn-p btn-full" onclick="saveForm()">${isE?'Lưu thay đổi':'Thêm vào tủ'}</button>
+    <button class="btn btn-s btn-full" style="margin-top:6px" onclick="cancelForm()">Huỷ</button>`;
+  showPanel(html);
+}
+
+function moveItem(id){items=items.map(i=>i.id===id?{...i,location:i.location==='city'?'home':'city'}:i);sel=null;closeSheet();saveData();renderCloset();}
+function delItem(id){
+  const it=items.find(i=>i.id===id);
+  if(it)localStorage.removeItem('wm_img_'+id);
+  items=items.filter(i=>i.id!==id);packIds=packIds.filter(x=>x!==id);
+  sel=null;closeSheet();saveData();renderCloset();
+}
+function remPack(id){packIds=packIds.filter(x=>x!==id);updateBadge();saveData();renderRightPanel();if(document.getElementById('pane-packing').classList.contains('on'))renderPacking();}
+function cancelForm(){fdata=null;renderCloset();if(isMobile())closeSheet();}
+function openAdd(){fdata={name:'',category:'tshirt',color:'white',location:aLoc==='all'?'city':aLoc,season:'Tất cả mùa',note:'',brand:'Uniqlo',img:''};sel=null;renderCloset();if(isMobile())openSheet();}
+function openEdit(id){fdata={...items.find(i=>i.id===id)};renderCloset();if(isMobile())openSheet();}
+function saveForm(){
+  if(!(fdata.name||'').trim())return;
+  if(fdata.id){items=items.map(i=>i.id===fdata.id?{...fdata}:i);}
+  else{items.push({...fdata,id:nid++});}
+  fdata=null;sel=null;closeSheet();saveData();renderCloset();
+}
+
+function addPack(id,x,y){
+  if(packIds.includes(id))return;
+  packIds.push(id);updateBadge();saveData();
+  const it=items.find(i=>i.id===id);
+  spawnFloat(ce(it?.category),x,y);
+  flashSec(getSec(it?.category).id);
+}
+function addPackBtn(id,e){const r=e.currentTarget.getBoundingClientRect();addPack(id,r.left+r.width/2,r.top+r.height/2);renderRightPanel();if(document.getElementById('pane-packing').classList.contains('on'))renderPacking();}
+function spawnFloat(emoji,x,y){const el=document.createElement('div');el.className='floater';el.textContent=emoji;el.style.cssText=`left:${x-16}px;top:${y-16}px`;document.body.appendChild(el);setTimeout(()=>el.remove(),750);}
+function flashSec(sid){const el=document.querySelector(`[data-sec="${sid}"]`);if(!el)return;const s=SECS.find(x=>x.id===sid);el.style.setProperty('--sc',s.col);el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),700);}
+function updateBadge(){const b=document.getElementById('packBadge');b.textContent=packIds.length;b.style.display=packIds.length?'inline':'none';}
+
+// ---- PACKING ----
+function toggleTrip(){tripOpen=!tripOpen;document.getElementById('tripForm').style.display=tripOpen?'block':'none';}
+function saveTrip(){trip={name:document.getElementById('t-name').value,days:document.getElementById('t-days').value,date:document.getElementById('t-date').value,note:document.getElementById('t-note').value};tripOpen=false;document.getElementById('tripForm').style.display='none';saveData();renderTripTag();}
+function renderTripTag(){const el=document.getElementById('tripTagEl');el.className='trip-tag '+(trip.name?'full':'empty');el.textContent=trip.name?`✈️ ${trip.name}${trip.days?' · '+trip.days+' ngày':''}` :'✈️ Thêm thông tin chuyến đi';}
+function setPLoc(loc,el){pLoc=loc;document.querySelectorAll('#pLocTabs .ltab').forEach(b=>b.classList.remove('on'));el.classList.add('on');renderMini();}
+
+function renderSuitcase(){
+  ['secTop','secMid','secBot'].forEach(id=>document.getElementById(id).innerHTML='');
+  SECS.slice(0,3).forEach(s=>renderSecBox(s,'secTop'));
+  SECS.slice(3,5).forEach(s=>renderSecBox(s,'secMid'));
+  SECS.slice(5).forEach(s=>renderSecBox(s,'secBot'));
+  document.getElementById('secStats').innerHTML=SECS.map(sec=>{
+    const n=packIds.filter(id=>{const it=items.find(i=>i.id===id);return it&&sec.cats.includes(it.category);}).length;
+    return n?`<span style="font-size:11px;padding:3px 9px;border-radius:20px;background:${sec.bg};color:${sec.col};font-weight:500">${sec.e} ${sec.l} ×${n}</span>`:'';
+  }).join('');
+}
+function renderSecBox(sec,cid){
+  const secItems=packIds.map(id=>items.find(i=>i.id===id)).filter(it=>it&&sec.cats.includes(it.category));
+  const chips=secItems.slice(0,3).map((it,j)=>`<div class="ichip" style="background:${ch(it.color)};border-color:${cb(it.color)};margin-left:${j*3}px"><span style="font-size:10px">${ce(it.category)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:52px;color:#111">${it.name}</span></div>`).join('');
+  const more=secItems.length>3?`<div style="font-size:8px;color:${sec.col};font-weight:500">+${secItems.length-3} nữa</div>`:'';
+  const badge=secItems.length?`<span class="sec-cnt" style="background:${sec.col}">${secItems.length}</span>`:'';
+  const div=document.createElement('div');
+  div.className='secbox';div.dataset.sec=sec.id;
+  div.style.cssText=`background:${sec.bg};border-color:${sec.col}33;--sc:${sec.col}`;
+  div.innerHTML=`<div class="sec-lbl" style="color:${sec.col}">${sec.e} ${sec.l}${badge}</div>${chips||`<div class="sec-empty" style="color:${sec.col}">Trống</div>`}${more}`;
+  document.getElementById(cid).appendChild(div);
+}
+function renderPackList(){
+  document.getElementById('packListLbl').textContent=`— Đồ trong vali (${packIds.length}) —`;
+  document.getElementById('packList').innerHTML=packIds.length?packIds.map(id=>{
+    const it=items.find(i=>i.id===id);if(!it)return'';
+    const sec=getSec(it.category);
+    const thumb=it.img?`<img src="${it.img}" style="width:30px;height:30px;object-fit:cover;border-radius:4px;flex-shrink:0">`:`<span style="font-size:18px">${ce(it.category)}</span>`;
+    return `<div class="pack-row">${thumb}<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;color:#222">${it.name}</div><div style="font-size:10px;color:#aaa">${it.brand} · ${it.location==='city'?'🏙️':'🏡'}</div></div><span style="font-size:9px;padding:2px 6px;border-radius:8px;background:${sec.bg};color:${sec.col};font-weight:500">${sec.l}</span><div style="width:9px;height:9px;border-radius:50%;background:${ch(it.color)};border:1px solid ${cb(it.color)};flex-shrink:0"></div><button class="prem" onclick="remPack(${id})">×</button></div>`;
+  }).join(''):'<div style="font-size:12px;color:#bbb;padding:6px 0">Vali đang trống!</div>';
+}
+function renderMini(){
+  document.getElementById('miniCloset').innerHTML=items.filter(i=>pLoc==='all'||i.location===pLoc).map(item=>{
+    const inp=packIds.includes(item.id);
+    const vis=item.img?`<img src="${item.img}" style="width:38px;height:38px;object-fit:cover;border-radius:5px">`:`<span style="font-size:22px">${ce(item.category)}</span>`;
+    return `<button class="mini-i${inp?' inp':''}" onclick="miniAdd(${item.id},event)">${vis}<span style="font-size:8px;color:#222;text-align:center;line-height:1.2;max-width:54px;word-break:break-word">${item.name}</span><span style="font-size:7px;color:#aaa">${item.location==='city'?'🏙️':'🏡'}</span></button>`;
+  }).join('');
+}
+function miniAdd(id,e){const r=e.currentTarget.getBoundingClientRect();addPack(id,r.left+r.width/2,r.top+r.height/2);renderPacking();}
+function renderPacking(){
+  renderTripTag();renderSuitcase();renderPackList();renderMini();
+  const pd=document.getElementById('perDayEl');
+  pd.innerHTML=trip.days&&packIds.length?`<span style="font-size:11px;padding:3px 9px;border-radius:20px;background:#EEEDFE;color:#3C3489;font-weight:500">~${(packIds.length/parseInt(trip.days)).toFixed(1)} items/ngày</span>`:'';
+}
+
+// ---- INIT ----
+loadData();
+updateBadge();
+renderCloset();
+</script>
+</body>
+</html>
