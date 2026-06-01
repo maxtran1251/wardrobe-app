@@ -4,6 +4,97 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Wardrobe Manager</title>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAVKve6qpd48c7KAtKtxngKuW5HnDTxonI",
+    authDomain: "wardrobe-app-e417d.firebaseapp.com",
+    projectId: "wardrobe-app-e417d",
+    storageBucket: "wardrobe-app-e417d.firebasestorage.app",
+    messagingSenderId: "571651461133",
+    appId: "1:571651461133:web:cb4259228d695b36008544"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  window.fbSignIn = async () => {
+    try { await signInWithPopup(auth, provider); }
+    catch(e) { console.error(e); }
+  };
+  window.fbSignOut = async () => {
+    await signOut(auth);
+  };
+  window.fbSave = async (uid, data) => {
+    try {
+      // Lưu items không có ảnh
+      const itemsNoImg = data.items.map(i => ({...i, img: ''}));
+      await setDoc(doc(db, 'users', uid), {
+        items: itemsNoImg,
+        packIds: data.packIds,
+        trip: data.trip,
+        nid: data.nid,
+        updatedAt: new Date().toISOString()
+      });
+      // Lưu ảnh riêng từng item
+      for (const item of data.items) {
+        if (item.img && item.img.startsWith('data:')) {
+          await setDoc(doc(db, 'users', uid, 'images', String(item.id)), { img: item.img });
+        }
+      }
+    } catch(e) { console.error('save error', e); }
+  };
+  window.fbLoad = async (uid) => {
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (!snap.exists()) return null;
+      const data = snap.data();
+      // Load ảnh từng item
+      for (const item of data.items) {
+        const imgSnap = await getDoc(doc(db, 'users', uid, 'images', String(item.id)));
+        if (imgSnap.exists()) item.img = imgSnap.data().img;
+        else item.img = '';
+      }
+      return data;
+    } catch(e) { console.error('load error', e); return null; }
+  };
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      window.currentUser = user;
+      document.getElementById('authBar').innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="${user.photoURL}" style="width:28px;height:28px;border-radius:50%">
+          <span style="font-size:12px;color:#444">${user.displayName}</span>
+          <button onclick="fbSignOut()" style="padding:4px 10px;border-radius:20px;border:.5px solid #ddd;background:transparent;color:#888;font-size:11px;cursor:pointer">Đăng xuất</button>
+        </div>`;
+      // Load data từ Firebase
+      const data = await window.fbLoad(user.uid);
+      if (data) {
+        window._fbItems = data.items;
+        window._fbPackIds = data.packIds;
+        window._fbTrip = data.trip;
+        window._fbNid = data.nid;
+      }
+      window._userReady = true;
+      if (window._appReady) window._initApp();
+    } else {
+      window.currentUser = null;
+      document.getElementById('authBar').innerHTML = `
+        <button onclick="fbSignIn()" style="display:inline-flex;align-items:center;gap:8px;padding:7px 16px;border-radius:20px;border:none;background:#534AB7;color:#fff;font-size:12px;font-weight:500;cursor:pointer">
+          <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-4z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 13 24 13c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.5 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.4 35.6 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7.1l-6.5 5C9.5 39.4 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.3-2.4 4.2-4.4 5.5l6.2 5.2C40.9 35.3 44 30 44 24c0-1.3-.1-2.7-.4-4z"/></svg>
+          Đăng nhập với Google
+        </button>`;
+      window._userReady = true;
+      if (window._appReady) window._initApp();
+    }
+  });
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,sans-serif}
 body{background:#f5f4f0;padding:12px}
@@ -112,6 +203,8 @@ body{background:#f5f4f0;padding:12px}
 </head>
 <body>
 <div class="app">
+  <!-- Auth bar -->
+  <div id="authBar" style="padding:10px 16px;background:#f7f6f2;border-bottom:1px solid #e0ddd8;display:flex;align-items:center;justify-content:flex-end;min-height:46px"></div>
   <div class="tabs">
     <button class="tab-btn on" onclick="switchTab('closet',this)">👕 Tủ đồ</button>
     <button class="tab-btn" onclick="switchTab('packing',this)">🧳 Packing <span class="badge" id="packBadge" style="display:none">0</span></button>
@@ -235,23 +328,28 @@ const isMobile=()=>window.innerWidth<640;
 let items=[],nid=100,aLoc='all',aCat='all',sel=null,packIds=[],pLoc='all';
 let trip={name:'',days:'',date:'',note:''},tripOpen=false,fdata=null;
 
-// ---- STORAGE (localStorage — hoạt động trên GitHub Pages) ----
-function saveData(){
-  try{
-    const itemsNoImg=items.map(i=>({...i,img:''}));
-    localStorage.setItem('wm_items',JSON.stringify(itemsNoImg));
-    localStorage.setItem('wm_pack',JSON.stringify(packIds));
-    localStorage.setItem('wm_trip',JSON.stringify(trip));
-    localStorage.setItem('wm_nid',nid);
+// ---- STORAGE (Firebase + localStorage fallback) ----
+async function saveData(){
+  const data = {items, packIds, trip, nid};
+  // Luôn lưu localStorage làm backup
+  try {
+    const itemsNoImg = items.map(i=>({...i,img:''}));
+    localStorage.setItem('wm_items', JSON.stringify(itemsNoImg));
+    localStorage.setItem('wm_pack', JSON.stringify(packIds));
+    localStorage.setItem('wm_trip', JSON.stringify(trip));
+    localStorage.setItem('wm_nid', nid);
     items.forEach(i=>{
       if(i.img&&i.img.startsWith('data:')){
-        try{localStorage.setItem('wm_img_'+i.id,i.img);}
-        catch(e){console.warn('img too large, skipping',i.id);}
+        try{localStorage.setItem('wm_img_'+i.id,i.img);}catch(e){}
       }
     });
-  }catch(e){console.warn('save error',e);}
+  } catch(e){}
+  // Lưu Firebase nếu đã đăng nhập
+  if (window.currentUser && window.fbSave) {
+    await window.fbSave(window.currentUser.uid, data);
+  }
 }
-function loadData(){
+function loadLocalData(){
   try{
     const r=localStorage.getItem('wm_items');
     if(r){
@@ -261,8 +359,6 @@ function loadData(){
         if(img)item.img=img;
       });
       items=loaded;
-    } else {
-      items=[];
     }
     const p=localStorage.getItem('wm_pack');
     if(p)packIds=JSON.parse(p);
@@ -270,7 +366,7 @@ function loadData(){
     if(t)trip=JSON.parse(t);
     const n=localStorage.getItem('wm_nid');
     if(n)nid=parseInt(n);
-  }catch(e){console.warn('load error',e);}
+  }catch(e){}
 }
 
 // ---- IMAGE ----
@@ -491,9 +587,22 @@ function renderPacking(){
 }
 
 // ---- INIT ----
-loadData();
-updateBadge();
-renderCloset();
+window._appReady = true;
+window._initApp = function() {
+  // Ưu tiên data từ Firebase nếu có
+  if (window._fbItems) {
+    items = window._fbItems;
+    packIds = window._fbPackIds || [];
+    trip = window._fbTrip || {name:'',days:'',date:'',note:''};
+    nid = window._fbNid || 100;
+  } else {
+    loadLocalData();
+  }
+  updateBadge();
+  renderCloset();
+};
+if (window._userReady) window._initApp();
+
 </script>
 </body>
 </html>
